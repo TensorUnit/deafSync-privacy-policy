@@ -1,0 +1,1 @@
+## POLITIQUE DE CONFIDENTIALITÉ deafTranslator
