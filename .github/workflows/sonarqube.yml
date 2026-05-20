@@ -22,15 +22,31 @@ jobs:
           fetch-depth: 0
 
       - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_PROJECT_KEY: tensorunit-deafsync-privacy-policy
+        run: |
+          wget -q -O /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux-x64.zip
+          unzip -q /tmp/sonar-scanner.zip -d /tmp
+          /tmp/sonar-scanner-5.0.1.3006-linux-x64/bin/sonar-scanner \
+            -Dsonar.projectKey=tensorunit-deafsync-privacy-policy \
+            -Dsonar.sources=. \
+            -Dsonar.host.url="${secrets.SONAR_HOST_URL}" \
+            -Dsonar.token="${secrets.SONAR_TOKEN}"
 
-      - name: SonarQube Quality Gate
-        uses: sonarsource/sonarqube-quality-gate-action@master
-        timeout-minutes: 5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      - name: Quality Gate Check
+        run: |
+          SONAR_HOST="${secrets.SONAR_HOST_URL}"
+          SONAR_TOKEN="${secrets.SONAR_TOKEN}"
+          PROJECT_KEY="tensorunit-deafsync-privacy-policy"
+          
+          sleep 10
+          
+          GATE_STATUS=$(curl -s \
+            -H "Authorization: Bearer $SONAR_TOKEN" \
+            "$SONAR_HOST/api/qualitygates/project_status?projectKey=$PROJECT_KEY" \
+            | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+          
+          echo "Quality Gate Status: $GATE_STATUS"
+          
+          if [ "$GATE_STATUS" != "OK" ]; then
+            echo "Quality Gate failed!"
+            exit 1
+          fi
