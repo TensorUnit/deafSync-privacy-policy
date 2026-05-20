@@ -1,52 +1,31 @@
 name: SonarQube Scan
 
 on:
-  workflow_dispatch:
-  workflow_call:
   push:
     branches:
-      - develop
       - main
+      - develop
   pull_request:
     branches:
-      - develop
       - main
+      - develop
 
 jobs:
-  sonarqube:
-    name: SonarQube Analysis
+  build:
+    name: Build and analyze
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: SonarQube Scan
-        run: |
-          wget -q -O /tmp/sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux-x64.zip
-          unzip -q /tmp/sonar-scanner.zip -d /tmp
-          /tmp/sonar-scanner-5.0.1.3006-linux-x64/bin/sonar-scanner \
-            -Dsonar.projectKey=tensorunit-deafsync-privacy-policy \
-            -Dsonar.sources=. \
-            -Dsonar.host.url="${secrets.SONAR_HOST_URL}" \
-            -Dsonar.token="${secrets.SONAR_TOKEN}"
-
-      - name: Quality Gate Check
-        run: |
-          SONAR_HOST="${secrets.SONAR_HOST_URL}"
-          SONAR_TOKEN="${secrets.SONAR_TOKEN}"
-          PROJECT_KEY="tensorunit-deafsync-privacy-policy"
-          
-          sleep 10
-          
-          GATE_STATUS=$(curl -s \
-            -H "Authorization: Bearer $SONAR_TOKEN" \
-            "$SONAR_HOST/api/qualitygates/project_status?projectKey=$PROJECT_KEY" \
-            | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
-          
-          echo "Quality Gate Status: $GATE_STATUS"
-          
-          if [ "$GATE_STATUS" != "OK" ]; then
-            echo "Quality Gate failed!"
-            exit 1
-          fi
+      
+      - uses: SonarSource/sonarqube-scan-action@v6.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      
+      - uses: SonarSource/sonarqube-quality-gate-action@v1.2.0
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
